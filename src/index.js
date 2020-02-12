@@ -16,7 +16,7 @@ const sequence = async (items) => {
 
 const formatDate = (raw) => {
   const date = new Date(raw);
-  return `${date.getMonth().toString().padStart(2, '0')}-${date.getDay().toString().padStart(2, '0')}`;
+  return `${date.getFullYear()}-${date.getMonth().toString().padStart(2, '0')}-${date.getDay().toString().padStart(2, '0')}`;
 };
 
 const getFeed = async (url) => {
@@ -42,6 +42,10 @@ const downloadItem = async (item, location) => {
     location,
     filename,
   );
+  if (fs.existsSync(targetLocation)) {
+    console.log(`... skipping existing ${filename}`);
+    return;
+  }
   console.log(`... downloading ${filename}`);
   const writer = fs.createWriteStream(targetLocation);
 
@@ -55,7 +59,10 @@ const downloadItem = async (item, location) => {
 
   return new Promise((resolve, reject) => {
     writer.on('finish', resolve);
-    writer.on('error', reject);
+    writer.on('error', () => {
+      reject();
+      fs.unlinkSync(targetLocation);
+    });
   });
 };
 
@@ -64,7 +71,10 @@ const updateFeed = async ({ url, maxNew = 5, newerThan }) => {
   console.log(`Updating ${feed.title}`);
   const dataLocation = path.join(feedLocation, path.normalize(feed.title));
   await fs.mkdirp(dataLocation);
-  const historyLocation = path.join(dataLocation, 'history.json');
+  const historyLocation = path.join(
+    feedLocation,
+    `${filenamify(feed.title, { replacement: ' ' })}.history.json`
+  );
   const downloads = fs.existsSync(historyLocation)
     ? await fs.readJSON(historyLocation)
     : [];
